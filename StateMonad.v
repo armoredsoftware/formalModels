@@ -34,7 +34,10 @@ Definition State (S A:Type) := S -> A * S.
   get  >>= λs → get >>= k s = get >>= λs → k s s
 >>
 
-The [put] laws are proved.  The first [get] law is not typechecking yet.
+The [put] laws were proved, but they cased two theorems at the end of the file
+to stop working.  This is completely bizzare.
+
+The first [get] law is not typechecking yet.
 Problem seems to be the old monad vs monoid closedness issue.  Specifically,
 the type [A] can change from one bind to the next. The
 second [get] law has a problem and the proof is admitted below.  The problem
@@ -46,10 +49,10 @@ Class StateMonad {S A:Type} (State: Type -> Type -> Type) `(Monad (State S)) :Ty
 {
   get: A -> State S S
   ; put: S -> A -> State S A
-  ; put1: forall (s s':S) (a:A), put s a >> put s' a = put s' a
+(*  ; put1: forall (s s':S) (a:A), put s a >> put s' a = put s' a
   ; put2: forall (s:S) (a:A), put s a >> get a = put s a >> unit s
-(*  ; get1: forall (s:S) (a:A), get a >>= put s = unit s *)
-(*  ; get2: forall (s:S) (a:A) (k:S->S->State S A),
+  ; get1: forall (s:S) (a:A), get a >>= put s = unit s
+  ; get2: forall (s:S) (a:A) (k:S->S->State S A),
             get a >>= (fun s => get a) >>= k s = get a >>= (fun s => (k s) s)*)
 }.
 
@@ -84,10 +87,11 @@ Instance StateMonadEx {S A:Type} : StateMonad State StateMonadI :=
   put := (fun (s:S) => (fun (a:A) => (fun (_:S) => (a,s))))
   ; get := (fun (a:A) => (fun (s:S) => (s,s)))
 }.
-Proof.
+
+(* Proof.
   intros. unfold sequence. simpl. extensionality x. reflexivity.
   intros. unfold sequence. simpl. extensionality x. reflexivity.
-Qed.
+Qed. *)
 
 Example unit_ex1 : ((unit 0) 1) = (0,1).
 Proof.

@@ -5,7 +5,10 @@
  of a state monad.
 
  TODO:
- - add state monad laws for put and get
+ + add state monad laws for put and get
+ - prove state monad laws for get
+ - rework get to use the standard form by adding a unit operator for the
+   [A] type.  Should be easy to do with typeclass parameters.
 *)
 
 Require Import FunctionalExtensionality.
@@ -22,11 +25,32 @@ Require Import Monad.
 Definition State (S A:Type) := S -> A * S.
 
 (** Extend the [Monad] class with [put] and [get].  Still need to add the
-  state monad laws for [put] and [get]. *)
+  state monad laws for [get]:
+
+<<
+  put s >> put s'            = put s'
+  put s >> get               = put s >> return s
+  get  >>= put               = return ()
+  get  >>= λs → get >>= k s = get >>= λs → k s s
+>>
+
+The [put] laws are proved.  The first [get] law is not typechecking yet.
+Problem seems to be the old monad vs monoid closedness issue.  Specifically,
+the type [A] can change from one bind to the next. The
+second [get] law has a problem and the proof is admitted below.  The problem
+may actually be related to the closedness issue.
+
+*)
+
 Class StateMonad {S A:Type} (State: Type -> Type -> Type) `(Monad (State S)) :Type :=
 {
   get: A -> State S S
   ; put: S -> A -> State S A
+  ; put1: forall (s s':S) (a:A), put s a >> put s' a = put s' a
+  ; put2: forall (s:S) (a:A), put s a >> get a = put s a >> unit s
+(*  ; get1: forall (s:S) (a:A), get a >>= put s = unit s *)
+(*  ; get2: forall (s:S) (a:A) (k:S->S->State S A),
+            get a >>= (fun s => get a) >>= k s = get a >>= (fun s => (k s) s)*)
 }.
 
 (** Create an instance of [Monad] from [(State S)] and prove the monad laws.
@@ -49,7 +73,7 @@ Proof.
   intros. extensionality x. reflexivity.
   intros. extensionality x. destruct (ma x) as (a,s1). reflexivity.
   intros. extensionality x. destruct (ma x) as (a,s1). reflexivity.
-  intros. extensionality x. reflexivity.
+  intros. extensionality x. reflexivity.  
 Defined.
 
 (** Create an instance of [StateMonad] using [State] as the type constructor
@@ -60,6 +84,10 @@ Instance StateMonadEx {S A:Type} : StateMonad State StateMonadI :=
   put := (fun (s:S) => (fun (a:A) => (fun (_:S) => (a,s))))
   ; get := (fun (a:A) => (fun (s:S) => (s,s)))
 }.
+Proof.
+  intros. unfold sequence. simpl. extensionality x. reflexivity.
+  intros. unfold sequence. simpl. extensionality x. reflexivity.
+Qed.
 
 Example unit_ex1 : ((unit 0) 1) = (0,1).
 Proof.
@@ -67,6 +95,8 @@ Proof.
   simpl.
   reflexivity.
 Qed.
+
+(** Examples and proofs *)
 
 (** [incState] is a simple [f] that increments a state value consisting of 
   a natural numnber. *)
@@ -99,7 +129,8 @@ Proof.
 Qed.
 
 (** [addInput] is a simple [f] that adds the result of a previous execution
-  to the current state *)
+  to the current state.  Note this function cannot use [sequence] and must
+  use [bind] due to the dependence on a previous result *)
 
 Definition addInput:(nat -> (State nat nat)) :=
   (fun a => (fun s => (a,(a+s)))).
@@ -110,19 +141,15 @@ Proof.
   unfold bind. reflexivity.
 Qed.
 
-Example put_ex2: (((unit 1):(State nat nat)) >>= ((fun (a:nat) => (fun (s:nat) => (0,10)):(State nat nat)))) 10 = (0,10).
+Example put_ex1 : (((unit 1) >>= (put 10)) 8) = (1,10).
 Proof.
-  unfold unit, bind.
-  trivial.
-Qed.
-
-Example put_ex1 : ((((unit 1) >>= (put 10)):(State nat nat)) 8) = (1,10).
-Proof.
-  unfold bind. simpl. unfold put. reflexivity.
+  unfold bind, put. simpl. reflexivity.
 Qed.
 
 Example get_ex1 : ((unit 0) >>= get) 10 = (10,10).
 Proof.
   unfold bind. simpl. unfold get. reflexivity.
 Qed.
+
+
 

@@ -87,7 +87,6 @@ Instance StateMonadEx {S A:Type} : StateMonad State StateMonadI :=
   put := (fun (s:S) => (fun (a:A) => (fun (_:S) => (a,s))))
   ; get := (fun (a:A) => (fun (s:S) => (s,s)))
 }.
-
 (* Proof.
   intros. unfold sequence. simpl. extensionality x. reflexivity.
   intros. unfold sequence. simpl. extensionality x. reflexivity.
@@ -154,6 +153,3 @@ Example get_ex1 : ((unit 0) >>= get) 10 = (10,10).
 Proof.
   unfold bind. simpl. unfold get. reflexivity.
 Qed.
-
-
-

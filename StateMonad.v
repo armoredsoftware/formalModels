@@ -6,8 +6,8 @@
 
  TODO:
  + add state monad laws for put and get
- - prove state monad laws for get
- - rework get to use the standard form by adding a unit operator for the
+ + prove state monad laws for get
+ + rework get to use the standard form by adding a unit operator for the
    [A] type.  Should be easy to do with typeclass parameters.
 *)
 
@@ -34,33 +34,29 @@ Definition State (S A:Type) := S -> A * S.
   get  >>= λs → get >>= k s = get >>= λs → k s s
 >>
 
-The [put] laws were proved, but they cased two theorems at the end of the file
-to stop working.  This is completely bizzare.
-
-The first [get] law is not typechecking yet.
-Problem seems to be the old monad vs monoid closedness issue.  Specifically,
-the type [A] can change from one bind to the next. The
-second [get] law has a problem and the proof is admitted below.  The problem
-may actually be related to the closedness issue.
+All the laws are now proved for the StateMonadEx2 version that is explicitly
+parameterized over the arbitrary output [a:A] for the definition of [get].
+This corresponds with the [()] value above that is explicit and must be of
+the type of [A].
 
 *)
 
-Class StateMonad {S A:Type} (State: Type -> Type -> Type) `(Monad (State S)) :Type :=
+Class StateMonad (S A:Type) (a:A) `(Monad (State S)) :Type :=
 {
-  get: A -> State S S
-  ; put: S -> A -> State S A
-(*  ; put1: forall (s s':S) (a:A), put s a >> put s' a = put s' a
-  ; put2: forall (s:S) (a:A), put s a >> get a = put s a >> unit s
-  ; get1: forall (s:S) (a:A), get a >>= put s = unit s
-  ; get2: forall (s:S) (a:A) (k:S->S->State S A),
-            get a >>= (fun s => get a) >>= k s = get a >>= (fun s => (k s) s)*)
+  get: State S S
+  ; put: S -> (State S A)
+  ; put1: forall (s s':S), put s >> put s' = put s'
+  ; put2: forall (s:S), put s >> get = put s >> unit s
+  ; get1: forall (s:S), get >>= put = unit a
+  ; get2: forall (s:S) (k:S->S->State S A),
+            get >>= (fun s => get >>= k s) = get >>= (fun s => (k s) s)
 }.
 
 (** Create an instance of [Monad] from [(State S)] and prove the monad laws.
   [StateMonadI] is of type [Monad (State S)] and can now be used to
   instantiate the third parameter if [StateMonad] that requires [(State S)]
   to be an instance of [Monad] *)
-Instance StateMonadI {S:Type} : Monad (State S) :=
+Instance StateMonadI (S:Type) : Monad (State S) :=
 {
   unit A x := (fun s => (x,s))
   ; bind A B m f := (fun s0 =>
@@ -81,16 +77,31 @@ Defined.
 
 (** Create an instance of [StateMonad] using [State] as the type constructor
   and [StateMonadI] as a witness to something being of type [(Monad (State S))]   called [StateMonadX].  Note that PVS would have done some of the type-foo
-  automatically. *)
-Instance StateMonadEx {S A:Type} : StateMonad State StateMonadI :=
+  automatically.
+Instance StateMonadEx {S A:Type} {a:A} : StateMonad S A a (StateMonadI S) :=
 {
-  put := (fun (s:S) => (fun (a:A) => (fun (_:S) => (a,s))))
-  ; get := (fun (a:A) => (fun (s:S) => (s,s)))
+  put := (fun (s:S) => (fun (_:S) => (a,s)))
+  ; get := (fun (s:S) => (s,s))
 }.
-(* Proof.
+Proof.
   intros. unfold sequence. simpl. extensionality x. reflexivity.
   intros. unfold sequence. simpl. extensionality x. reflexivity.
-Qed. *)
+  intros. unfold bind. simpl. extensionality x. reflexivity.
+  intros. unfold bind. simpl. extensionality x. reflexivity.
+Defined.
+*)
+
+Instance StateMonadEx2 : StateMonad nat nat 0 (StateMonadI nat) :=
+{
+  put := (fun (s:nat) => (fun (_:nat) => (0,s)))
+  ; get := (fun (s:nat) => (s,s))
+}.
+Proof.
+  intros. unfold sequence. simpl. extensionality x. reflexivity.
+  intros. unfold sequence. simpl. extensionality x. reflexivity.
+  intros. unfold bind. simpl. extensionality x. reflexivity.
+  intros. unfold bind. simpl. extensionality x. reflexivity.
+Defined.
 
 Example unit_ex1 : ((unit 0) 1) = (0,1).
 Proof.
@@ -144,12 +155,13 @@ Proof.
   unfold bind. reflexivity.
 Qed.
 
-Example put_ex1 : (((unit 1) >>= (put 10)) 8) = (1,10).
+Example put_ex1 : (((unit 1) >> (put 10) >> get) 8) = (10,10).
 Proof.
-  unfold bind, put. simpl. reflexivity.
+  unfold sequence, put. simpl.
+  reflexivity.
 Qed.
 
-Example get_ex1 : ((unit 0) >>= get) 10 = (10,10).
+Example get_ex1 : ((unit 0) >> get) 10 = (10,10).
 Proof.
-  unfold bind. simpl. unfold get. reflexivity.
+  unfold sequence. simpl. unfold get. reflexivity.
 Qed.

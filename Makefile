@@ -39,8 +39,8 @@ $(call includecmdwithout@,$(COQBIN)coqtop -config)
 #                        #
 ##########################
 
-COQLIBS?= -R . Monad.v
-COQDOCLIBS?=-R . Monad.v
+COQLIBS?= -R . Protocol
+COQDOCLIBS?=-R . Protocol
 
 ##########################
 #                        #
@@ -80,9 +80,10 @@ endif
 #                    #
 ######################
 
-VFILES:=StateMonad.v\
-  SfLib.v\
-  ProtocolMonad.v
+VFILES:=ProtocolMonad.v\
+  StateMonad.v\
+  Monad.v\
+  Sflib.v
 
 -include $(addsuffix .d,$(VFILES))
 .SECONDARY: $(addsuffix .d,$(VFILES))
@@ -158,14 +159,14 @@ userinstall:
 
 install:
 	for i in $(VOFILES); do \
-	 install -d `dirname $(DSTROOT)$(COQLIBINSTALL)/Monad/v/$$i`; \
-	 install -m 0644 $$i $(DSTROOT)$(COQLIBINSTALL)/Monad/v/$$i; \
+	 install -d `dirname $(DSTROOT)$(COQLIBINSTALL)/Protocol/$$i`; \
+	 install -m 0644 $$i $(DSTROOT)$(COQLIBINSTALL)/Protocol/$$i; \
 	done
 
 install-doc:
-	install -d "$(DSTROOT)"$(COQDOCINSTALL)/Monad/v/html
+	install -d "$(DSTROOT)"$(COQDOCINSTALL)/Protocol/html
 	for i in html/*; do \
-	 install -m 0644 $$i "$(DSTROOT)"$(COQDOCINSTALL)/Monad/v/$$i;\
+	 install -m 0644 $$i "$(DSTROOT)"$(COQDOCINSTALL)/Protocol/$$i;\
 	done
 
 clean:

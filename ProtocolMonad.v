@@ -1,4 +1,5 @@
 Require Export StateMonad.
+Require Export FunctionalExtensionality.
 
 Definition C := Type.
 Definition ID := Type.
@@ -26,14 +27,32 @@ Class ProtocolMonad {S A:Type} `(StateMonad) : Type :=
   ; bundle : A -> (State S A)
 }.
 
-Instance ProtocolMonadI (S A:Type) : StateMonad State StateMonadI :=
+(** Make the [ProtocolMonad] an instance of [StateMonad] by giving values
+  to [put] and [get] and proving the state monad laws. This instance is
+  paramaterized over [S], [A] and [a], thus it can be used when creating
+  an instance of [ProtocolMonad]. *)
+
+Instance ProtocolMonadAsState (S A:Type) (a:A) :
+  StateMonad S A a (StateAsMonad S) :=
 {
-  put := (fun (s:S) => (fun (a:A) => (fun (_:S) => (a,s))))
-  ; get := (fun (a:A) => (fun (s:S) => (s,s)))
+  put := (fun (s:S) => (fun (_:S) => (a,s)))
+  ; get := (fun (s:S) => (s,s))
 }.
+Proof.
+  intros. simpl. extensionality x. reflexivity.
+  intros. simpl. extensionality x. reflexivity.
+  intros. simpl. extensionality x. reflexivity.
+  intros. simpl. extensionality x. reflexivity.
+Defined.
 
+(** Create an instnce of [ProtocolModad] using [nat] for the type of both [S]
+  and [A] and using [0] as the defuault result. This should be doable for
+  any types, not just [nat]. Right now there are no protocol monad laws, thus
+  one need only specify values for the elements of [ProtocolMonad] that
+  that define the specific instance. *)
 
-Instance ProtocolMonadEx : ProtocolMonad (ProtocolMonadI nat nat) :=
+Instance ProtocolMonadInstance :
+  ProtocolMonad (ProtocolMonadAsState nat nat 0) :=
 {
   send := (fun (_:C) => (fun (_:ID) => (fun (a:nat) => (fun (s:nat) => (a,s)))))
   ; receive := (fun (_:C) => (fun (_:ID) => (fun (a:nat) => (fun (s:nat) => (a,s)))))

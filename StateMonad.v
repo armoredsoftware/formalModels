@@ -19,22 +19,25 @@ Require Import Monad.
   that [StateMonad S] is the monad, not just [StateMonad].  This will be
   important when we instantiate the [Monad] typeclass.  *)
 
-(** [State] is the classic definition of the state monad type.  Note that
-  although its name is [State] its really a next state function.  Keeping
-  the tradition name here. *)
+(** [State] is the classic definition of the state monad type.  The [State]
+  type is parameterized over a state value type [S] and a result type [A].  
+  The [State] type itself always has the same form, thus it is not a
+  parameter to [StateMonad].  Note that although its name is [State] it is
+  really a next state function.  Keeping the tradition name here: *)
+
 Definition State (S A:Type) := S -> A * S.
 
-(** Extend the [Monad] class with [put] and [get].  Still need to add the
-  state monad laws for [get]:
+(** Extend the [Monad] class with [put] and [get] along with their associated
+  laws:
 
 <<
-  put s >> put s'            = put s'
-  put s >> get               = put s >> return s
-  get  >>= put               = return ()
-  get  >>= λs → get >>= k s = get >>= λs → k s s
+  put s >> put s'              = put s'
+  put s >> get                 = put s >> return s
+  get  >>= put                 = return ()
+  get  >>= (\s => get >>= k s) = get >>= \s => k s s
 >>
 
-All the laws are now proved for the StateMonadEx2 version that is explicitly
+All the laws are now proved for [StateMonadEx2] that is explicitly
 parameterized over the arbitrary output [a:A] for the definition of [get].
 This corresponds with the [()] value above that is explicit and must be of
 the type of [A].
@@ -45,18 +48,18 @@ Class StateMonad (S A:Type) (a:A) `(Monad (State S)) :Type :=
 {
   get: State S S
   ; put: S -> (State S A)
-  ; put1: forall (s s':S), put s >> put s' = put s'
-  ; put2: forall (s:S), put s >> get = put s >> unit s
-  ; get1: forall (s:S), get >>= put = unit a
-  ; get2: forall (s:S) (k:S->S->State S A),
-            get >>= (fun s => get >>= k s) = get >>= (fun s => (k s) s)
+  ; put_put: forall (s s':S), put s >> put s' = put s'
+  ; put_get_unit: forall (s:S), put s >> get = put s >> unit s
+  ; get_put1: forall (s:S), get >>= put = unit a
+  ; get_get: forall (s:S) (k:S->S->State S A),
+               get >>= (fun s => get >>= k s) = get >>= (fun s => (k s) s)
 }.
 
 (** Create an instance of [Monad] from [(State S)] and prove the monad laws.
-  [StateMonadI] is of type [Monad (State S)] and can now be used to
-  instantiate the third parameter if [StateMonad] that requires [(State S)]
+  [StateAsMonad] is of type [Monad (State S)] and can now be used to
+  instantiate the parameter of [StateMonad] that requires [(State S)]
   to be an instance of [Monad] *)
-Instance StateMonadI (S:Type) : Monad (State S) :=
+Instance StateAsMonad (S:Type) : Monad (State S) :=
 {
   unit A x := (fun s => (x,s))
   ; bind A B m f := (fun s0 =>
@@ -75,10 +78,13 @@ Proof.
   intros. extensionality x. reflexivity.  
 Defined.
 
-(** Create an instance of [StateMonad] using [State] as the type constructor
-  and [StateMonadI] as a witness to something being of type [(Monad (State S))]   called [StateMonadX].  Note that PVS would have done some of the type-foo
-  automatically.
-Instance StateMonadEx {S A:Type} {a:A} : StateMonad S A a (StateMonadI S) :=
+(** Create an instance of [StateMonad] that is parameterized over the state
+  [S] and result [A] types that are used in [State] to create the state
+  transformer.  [a] is the default result that is used by [put].  This value
+  is causing difficulties when types are inferred.  The later definition
+  of [StateMonadVar] solves this by making all parameters are explicit.
+
+Instance StateMonadVar {S A:Type} {a:A} : StateMonad S A a (StateAsMonad S) :=
 {
   put := (fun (s:S) => (fun (_:S) => (a,s)))
   ; get := (fun (s:S) => (s,s))
@@ -91,7 +97,15 @@ Proof.
 Defined.
 *)
 
-Instance StateMonadEx2 : StateMonad nat nat 0 (StateMonadI nat) :=
+(** Create an instance of [StateMonad] that is not parameterized over the
+  state [S] and result [A] types that are used in [State] to create the state
+  transformer.  Here, the type [nat] is used  and the default result that
+  is used by [put] is [0]. Where the first version allows definition of 
+  any state monad, this is a specific state monad.  We need to get somewhere
+  in between. This model requires redefinition of [put] and [get] as well
+  as reworking the proofs.  It would be nice to reuse the proofs.
+*)
+Instance StateMonadNat : StateMonad nat nat 0 (StateAsMonad nat) :=
 {
   put := (fun (s:nat) => (fun (_:nat) => (0,s)))
   ; get := (fun (s:nat) => (s,s))
@@ -110,6 +124,26 @@ Proof.
   reflexivity.
 Qed.
 
+(*
+Instance StateMonadEx3 (S A:Type) (a:A) : StateMonad S A a (StateAsMonad S) :=
+{
+  put := (fun (s:S) => (fun (_:S) => (a,s)))
+  ; get := (fun (s:S) => (s,s))
+}.
+Proof.
+  intros. unfold sequence. simpl. extensionality x. reflexivity.
+  intros. unfold sequence. simpl. extensionality x. reflexivity.
+  intros. unfold bind. simpl. extensionality x. reflexivity.
+  intros. unfold bind. simpl. extensionality x. reflexivity.
+Defined.
+
+Definition StateMonadInstance := StateMonadEx3 nat nat 0.
+
+Lemma smsm : StateMonadInstance = StateMonadNat.
+Proof.
+  reflexivity.
+Qed.
+*)
 (** Examples and proofs *)
 
 (** [incState] is a simple [f] that increments a state value consisting of 
@@ -155,13 +189,15 @@ Proof.
   unfold bind. reflexivity.
 Qed.
 
-Example put_ex1 : (((unit 1) >> (put 10) >> get) 8) = (10,10).
-Proof.
-  unfold sequence, put. simpl.
-  reflexivity.
-Qed.
+Check get.
 
 Example get_ex1 : ((unit 0) >> get) 10 = (10,10).
 Proof.
   unfold sequence. simpl. unfold get. reflexivity.
+Qed.
+
+Example put_ex1 : (((unit 1) >> (put 10) >> get) 8) = (10,10).
+Proof.
+  unfold sequence, put. simpl.
+  reflexivity.
 Qed.

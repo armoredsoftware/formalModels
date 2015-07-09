@@ -15,6 +15,8 @@ Require Import FunctionalExtensionality.
 Require Import Arith.
 Require Import Monad.
 
+(** * StateMonad definition *)
+
 (** Extend the [Monad] typeclass to implement a [StateMonad] typeclass.  Note
   that [StateMonad S] is the monad, not just [StateMonad].  This will be
   important when we instantiate the [Monad] typeclass.  *)
@@ -58,8 +60,11 @@ Class StateMonad (S A:Type) (a:A) `(Monad (State S)) :Type :=
 (** Create an instance of [Monad] from [(State S)] and prove the monad laws.
   [StateAsMonad] is of type [Monad (State S)] and can now be used to
   instantiate the parameter of [StateMonad] that requires [(State S)]
-  to be an instance of [Monad] *)
-Instance StateAsMonad (S:Type) : Monad (State S) :=
+  to be an instance of [Monad].  Note that [StateAsMonad] is parameterized
+  over [S] and thus can be used to establish that any [S] can be shown to
+  satisfy the monad laws. [S] is inferred and need not be explicitly provided *)
+
+Instance StateAsMonad {S:Type} : Monad (State S) :=
 {
   unit A x := (fun s => (x,s))
   ; bind A B m f := (fun s0 =>
@@ -78,34 +83,12 @@ Proof.
   intros. extensionality x. reflexivity.  
 Defined.
 
-(** Create an instance of [StateMonad] that is parameterized over the state
-  [S] and result [A] types that are used in [State] to create the state
-  transformer.  [a] is the default result that is used by [put].  This value
-  is causing difficulties when types are inferred.  The later definition
-  of [StateMonadVar] solves this by making all parameters are explicit.
-
-Instance StateMonadVar {S A:Type} {a:A} : StateMonad S A a (StateAsMonad S) :=
-{
-  put := (fun (s:S) => (fun (_:S) => (a,s)))
-  ; get := (fun (s:S) => (s,s))
-}.
-Proof.
-  intros. unfold sequence. simpl. extensionality x. reflexivity.
-  intros. unfold sequence. simpl. extensionality x. reflexivity.
-  intros. unfold bind. simpl. extensionality x. reflexivity.
-  intros. unfold bind. simpl. extensionality x. reflexivity.
-Defined.
+(** Create an instance of [StateMonad] as a working example. The type [nat]
+  is used for both [S] and [A] The default result that
+  is used by [put] is [0].  Defining any instance of [StateMonad] will work
+  similarly.
 *)
-
-(** Create an instance of [StateMonad] that is not parameterized over the
-  state [S] and result [A] types that are used in [State] to create the state
-  transformer.  Here, the type [nat] is used  and the default result that
-  is used by [put] is [0]. Where the first version allows definition of 
-  any state monad, this is a specific state monad.  We need to get somewhere
-  in between. This model requires redefinition of [put] and [get] as well
-  as reworking the proofs.  It would be nice to reuse the proofs.
-*)
-Instance StateMonadNat : StateMonad nat nat 0 (StateAsMonad nat) :=
+Instance StateMonadNat : StateMonad nat nat 0 StateAsMonad :=
 {
   put := (fun (s:nat) => (fun (_:nat) => (0,s)))
   ; get := (fun (s:nat) => (s,s))
@@ -124,27 +107,7 @@ Proof.
   reflexivity.
 Qed.
 
-(*
-Instance StateMonadEx3 (S A:Type) (a:A) : StateMonad S A a (StateAsMonad S) :=
-{
-  put := (fun (s:S) => (fun (_:S) => (a,s)))
-  ; get := (fun (s:S) => (s,s))
-}.
-Proof.
-  intros. unfold sequence. simpl. extensionality x. reflexivity.
-  intros. unfold sequence. simpl. extensionality x. reflexivity.
-  intros. unfold bind. simpl. extensionality x. reflexivity.
-  intros. unfold bind. simpl. extensionality x. reflexivity.
-Defined.
-
-Definition StateMonadInstance := StateMonadEx3 nat nat 0.
-
-Lemma smsm : StateMonadInstance = StateMonadNat.
-Proof.
-  reflexivity.
-Qed.
-*)
-(** Examples and proofs *)
+(** * Examples and proofs *)
 
 (** [incState] is a simple [f] that increments a state value consisting of 
   a natural numnber. *)
@@ -188,8 +151,6 @@ Example bind_ex3 :
 Proof.
   unfold bind. reflexivity.
 Qed.
-
-Check get.
 
 Example get_ex1 : ((unit 0) >> get) 10 = (10,10).
 Proof.

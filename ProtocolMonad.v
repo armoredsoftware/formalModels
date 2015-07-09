@@ -33,7 +33,7 @@ Class ProtocolMonad {S A:Type} `(StateMonad) : Type :=
   an instance of [ProtocolMonad]. *)
 
 Instance ProtocolMonadAsState (S A:Type) (a:A) :
-  StateMonad S A a (StateAsMonad S) :=
+  StateMonad S A a StateAsMonad :=
 {
   put := (fun (s:S) => (fun (_:S) => (a,s)))
   ; get := (fun (s:S) => (s,s))

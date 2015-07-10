@@ -20,7 +20,8 @@ Class ProtocolMonad {S A:Type} `(StateMonad) : Type :=
 {
   send : C -> ID -> A -> (State S A)
   ; receive : C -> ID -> A -> (State S A)
-  ; vtpm : A -> (State S A)                              
+  ; vtpm : A -> (State S A)
+  ; measure : A -> (State S A)
   ; ifM : bool -> (State S A) -> (State S A) -> (State S A)
   ; mapM : (State S A)
   ; foldM : (State S A)
@@ -32,7 +33,7 @@ Class ProtocolMonad {S A:Type} `(StateMonad) : Type :=
   paramaterized over [S], [A] and [a], thus it can be used when creating
   an instance of [ProtocolMonad]. *)
 
-Instance ProtocolMonadAsState (S A:Type) (a:A) :
+Instance ProtocolAsState (S A:Type) (a:A) :
   StateMonad S A a StateAsMonad :=
 {
   put := (fun (s:S) => (fun (_:S) => (a,s)))
@@ -52,10 +53,11 @@ Defined.
   that define the specific instance. *)
 
 Instance ProtocolMonadInstance :
-  ProtocolMonad (ProtocolMonadAsState nat nat 0) :=
+  ProtocolMonad (ProtocolAsState nat nat 0) :=
 {
   send := (fun (_:C) => (fun (_:ID) => (fun (a:nat) => (fun (s:nat) => (a,s)))))
   ; receive := (fun (_:C) => (fun (_:ID) => (fun (a:nat) => (fun (s:nat) => (a,s)))))
+  ; measure := (fun (a:nat) => (fun (s:nat) => (a,s)))
   ; ifM := (fun (p:bool) => (fun (t:(State nat nat)) => (fun (f:(State nat nat)) => if p then t else f)))
   ; mapM := (fun (s:nat) => (0,s))
   ; foldM := (fun (s:nat) => (0,s))
